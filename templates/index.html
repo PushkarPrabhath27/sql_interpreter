@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Natural Language to SQL Converter</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css">
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold text-center mb-8">SQL Query Generator</h1>
+        
+        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-6">
+            <form id="queryForm" class="space-y-6">
+                <div>
+                    <label class="block text-gray-700 text-sm font-bold mb-2">
+                        Describe what you want to do with your data:
+                    </label>
+                    <textarea 
+                        id="userInput"
+                        class="w-full h-32 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Example: Show me all employees who earn more than 50000 and work in the IT department"
+                    ></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-gray-700 text-sm font-bold mb-2">
+                        Provide sample data structure (optional):
+                    </label>
+                    <textarea 
+                        id="schemaInput"
+                        class="w-full h-24 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Example: employees table has columns: id, name, salary, department"
+                    ></textarea>
+                </div>
+                
+                <button 
+                    type="submit"
+                    class="w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition duration-200"
+                >
+                    Generate SQL Query
+                </button>
+            </form>
+            
+            <div id="result" class="mt-8 hidden">
+                <h2 class="text-xl font-bold mb-4">Generated SQL Query:</h2>
+                <pre id="sqlOutput" class="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto"></pre>
+            </div>
+        </div>
+    </div>
+    <script src="/static/js/main.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+</body>
+</html> 
