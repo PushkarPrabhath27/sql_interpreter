@@ -1,55 +1,557 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Natural Language to SQL Converter</title>
+    <title>SQL Query Generator</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f3f4f6;
+        }
+        pre, code {
+            font-family: 'Fira Code', monospace;
+        }
+        .gradient-border {
+            position: relative;
+            border-radius: 0.5rem;
+            background: linear-gradient(white, white) padding-box,
+                        linear-gradient(45deg, #3b82f6, #8b5cf6) border-box;
+            border: 2px solid transparent;
+        }
+        .sql-highlight {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            position: relative;
+            padding-right: 5rem;
+        }
+        .keyword { color: #7c3aed; font-weight: 600; }
+        .table { color: #2563eb; }
+        .column { color: #059669; }
+        .operator { color: #dc2626; }
+        .value { color: #9333ea; }
+        #copy-notification {
+            transition: all 0.3s ease-in-out;
+            z-index: 50;
+        }
+        #copy-notification.hidden {
+            opacity: 0;
+            transform: translateY(1rem);
+        }
+        .copy-button {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            z-index: 10;
+        }
+        .copy-button:hover {
+            opacity: 0.9;
+        }
+        .copy-button:active {
+            transform: scale(0.95);
+        }
+        /* Dark mode styles */
+        body.dark {
+            background-color: #1f2937; /* Dark background */
+            color: #f9fafb; /* Light text */
+        }
+        .bg-white.dark {
+            background-color: #374151; /* Dark card background */
+        }
+        .text-gray-800.dark {
+            color: #e5e7eb; /* Light text for headers */
+        }
+        .border-gray-300.dark {
+            border-color: #4b5563; /* Dark border */
+        }
+        .sql-highlight.dark {
+            background-color: #4b5563; /* Dark SQL highlight */
+            border: 1px solid #6b7280; /* Dark border */
+        }
+        .bg-blue-500.dark {
+            background-color: #3b82f6; /* Dark blue */
+        }
+        .bg-blue-600.dark {
+            background-color: #2563eb; /* Dark blue hover */
+        }
+        .bg-green-500.dark {
+            background-color: #10b981; /* Dark green */
+        }
+        .bg-green-600.dark {
+            background-color: #059669; /* Dark green hover */
+        }
+        .bg-gray-50.dark {
+            background-color: #1f2937; /* Dark gray */
+        }
+        .bg-gray-600.dark {
+            background-color: #374151; /* Dark gray */
+        }
+        /* Toggle styles */
+        .dot {
+            transition: transform 0.3s ease;
+        }
+        input:checked + .relative .dot {
+            transform: translateX(100%);
+        }
+    </style>
 </head>
-<body class="bg-gray-100">
-    <div class="container mx-auto px-4 py-8">
-        <h1 class="text-3xl font-bold text-center mb-8">SQL Query Generator</h1>
-        
-        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-6">
-            <form id="queryForm" class="space-y-6">
-                <div>
-                    <label class="block text-gray-700 text-sm font-bold mb-2">
-                        Describe what you want to do with your data:
-                    </label>
-                    <textarea 
-                        id="userInput"
-                        class="w-full h-32 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Example: Show me all employees who earn more than 50000 and work in the IT department"
-                    ></textarea>
-                </div>
-                
-                <div>
-                    <label class="block text-gray-700 text-sm font-bold mb-2">
-                        Provide sample data structure (optional):
-                    </label>
-                    <textarea 
-                        id="schemaInput"
-                        class="w-full h-24 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Example: employees table has columns: id, name, salary, department"
-                    ></textarea>
-                </div>
-                
-                <button 
-                    type="submit"
-                    class="w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition duration-200"
-                >
-                    Generate SQL Query
+<body class="min-h-screen py-8 px-4">
+    <div class="max-w-4xl mx-auto">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">Natural Language to SQL</h1>
+            <div class="flex items-center">
+                <label for="dark-mode-toggle" class="flex items-center cursor-pointer mr-4">
+                    <input type="checkbox" id="dark-mode-toggle" class="hidden" onchange="toggleDarkMode()">
+                    <div class="relative">
+                        <div class="block bg-gray-600 w-14 h-8 rounded-full transition duration-300"></div>
+                        <div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition duration-300"></div>
+                    </div>
+                </label>
+                <span class="text-gray-800">Dark Mode</span>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-gray-800">Database Schema</h2>
+                <button onclick="addTable()" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600">
+                    Add Table
                 </button>
-            </form>
-            
-            <div id="result" class="mt-8 hidden">
-                <h2 class="text-xl font-bold mb-4">Generated SQL Query:</h2>
-                <pre id="sqlOutput" class="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto"></pre>
+            </div>
+            <div id="schema-container" class="space-y-4">
+                <!-- Schema tables will be added here -->
+            </div>
+        </div>
+
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-8">
+            <h3 class="text-lg font-semibold text-yellow-800 mb-2">How to Use</h3>
+            <ol class="list-decimal list-inside space-y-2 text-yellow-700">
+                <li>Create a table by clicking "Add Table"</li>
+                <li>Add columns to your table</li>
+                <li>Click "View/Edit Data" to add data to your table</li>
+                <li>Type your query in natural language</li>
+                <li>Click "Generate SQL" to see the result</li>
+            </ol>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Query Generator</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-gray-700 font-medium mb-2">Enter your query in natural language</label>
+                    <textarea 
+                        id="query" 
+                        class="w-full h-24 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Example: Show all students with grade above 80"
+                    ></textarea>
+                </div>
+                <button 
+                    onclick="generateSQL()" 
+                    class="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:opacity-90 transition-opacity"
+                >
+                    Generate SQL
+                </button>
+            </div>
+        </div>
+
+        <div id="result-container" class="hidden bg-white rounded-lg shadow-lg p-6 mt-8">
+            <div class="mb-6">
+                <h2 class="text-xl font-semibold text-gray-800">Generated SQL</h2>
+            </div>
+            <div class="relative">
+                <div class="sql-highlight rounded-lg p-4 font-mono text-sm bg-gray-50" id="sql-result">
+                    <!-- SQL will be inserted here -->
+                </div>
+                <button 
+                    onclick="copySQL()" 
+                    class="absolute top-2 right-2 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 transition-colors duration-200 shadow-sm"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    Copy
+                </button>
+            </div>
+            <div id="copy-notification" class="hidden fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg transform transition-all duration-300">
+                Copied to clipboard!
+            </div>
+        </div>
+
+        <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <h2 class="text-lg font-semibold text-gray-800 mb-3">Example Queries</h2>
+            <ul class="space-y-2 text-gray-600">
+                <li>• Show all students</li>
+                <li>• Find students with grade above 80</li>
+                <li>• Add new student John with grade 95</li>
+                <li>• Update grade to 85 for student with id 1</li>
+                <li>• Delete students with grade below 60</li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="data-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border w-4/5 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Table Data</h3>
+                <div id="data-table-container" class="overflow-x-auto">
+                    <!-- Data table will be inserted here -->
+                </div>
+                <div class="mt-4 flex justify-end gap-2">
+                    <button onclick="addDataRow()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                        Add Row
+                    </button>
+                    <button onclick="saveTableData()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        Save
+                    </button>
+                    <button onclick="closeDataModal()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                        Close
+                    </button>
+                </div>
             </div>
         </div>
     </div>
-    <script src="/static/js/main.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+
+    <script>
+    let currentSchema = {
+        tables: []
+    };
+    let currentTableId = null;
+    let tableData = {};
+
+    function addTable() {
+        const tableId = Date.now();
+        const tableHtml = `
+            <div id="table-${tableId}" class="gradient-border p-4">
+                <div class="flex justify-between items-center mb-4">
+                    <input 
+                        type="text" 
+                        placeholder="Table Name" 
+                        class="border p-2 rounded"
+                        onchange="updateSchema(${tableId})"
+                    >
+                    <div class="flex gap-2">
+                        <button 
+                            onclick="openDataModal(${tableId})" 
+                            class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                        >
+                            View/Edit Data
+                        </button>
+                        <button 
+                            onclick="deleteTable(${tableId})" 
+                            class="text-red-500 hover:text-red-700"
+                        >
+                            Delete
+                        </button>
+                    </div>
+                </div>
+                <div class="columns-container space-y-2">
+                    <div class="flex gap-2 mb-2">
+                        <input 
+                            type="text" 
+                            placeholder="Column Name" 
+                            class="border p-2 rounded flex-1"
+                        >
+                        <select class="border p-2 rounded">
+                            <option value="int">Integer</option>
+                            <option value="text">Text</option>
+                            <option value="date">Date</option>
+                            <option value="float">Float</option>
+                        </select>
+                        <button 
+                            onclick="addColumn(${tableId})" 
+                            class="bg-blue-500 text-white px-3 rounded hover:bg-blue-600"
+                        >
+                            +
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('schema-container').insertAdjacentHTML('beforeend', tableHtml);
+        updateSchema(tableId);
+    }
+
+    function addColumn(tableId) {
+        const columnHtml = `
+            <div class="flex gap-2 mb-2">
+                <input 
+                    type="text" 
+                    placeholder="Column Name" 
+                    class="border p-2 rounded flex-1"
+                    onchange="updateSchema(${tableId})"
+                >
+                <select 
+                    class="border p-2 rounded"
+                    onchange="updateSchema(${tableId})"
+                >
+                    <option value="int">Integer</option>
+                    <option value="text">Text</option>
+                    <option value="date">Date</option>
+                    <option value="float">Float</option>
+                </select>
+                <button 
+                    onclick="this.parentElement.remove(); updateSchema(${tableId})" 
+                    class="text-red-500 hover:text-red-700"
+                >
+                    ×
+                </button>
+            </div>
+        `;
+        document.querySelector(`#table-${tableId} .columns-container`).insertAdjacentHTML('beforeend', columnHtml);
+        updateSchema(tableId);
+    }
+
+    function deleteTable(tableId) {
+        document.getElementById(`table-${tableId}`).remove();
+        updateSchema();
+    }
+
+    function updateSchema() {
+        const tables = {};
+        document.querySelectorAll('[id^="table-"]').forEach(tableEl => {
+            const tableName = tableEl.querySelector('input[type="text"]').value.trim();
+            if (tableName) {
+                const columns = [];
+                const types = {};
+                
+                tableEl.querySelectorAll('.columns-container > div').forEach(columnEl => {
+                    const columnName = columnEl.querySelector('input[type="text"]').value.trim();
+                    const columnType = columnEl.querySelector('select').value;
+                    if (columnName) {
+                        columns.push(columnName);
+                        types[columnName] = columnType;
+                    }
+                });
+                
+                if (columns.length > 0) {
+                    tables[tableName] = {
+                        columns: columns,
+                        types: types
+                    };
+                }
+            }
+        });
+        currentSchema = tables;
+        return tables;
+    }
+
+    function openDataModal(tableId) {
+        currentTableId = tableId;
+        const modal = document.getElementById('data-modal');
+        const tableEl = document.getElementById(`table-${tableId}`);
+        const tableName = tableEl.querySelector('input[type="text"]').value.trim();
+        const columns = [];
+        
+        tableEl.querySelectorAll('.columns-container > div').forEach(columnEl => {
+            const columnName = columnEl.querySelector('input[type="text"]').value.trim();
+            if (columnName) {
+                columns.push(columnName);
+            }
+        });
+
+        // Create table HTML
+        let tableHTML = `
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        ${columns.map(col => `
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                ${col}
+                            </th>
+                        `).join('')}
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200" id="data-table-body">
+                    ${(tableData[tableId] || []).map((row, rowIndex) => `
+                        <tr>
+                            ${columns.map(col => `
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <input type="text" value="${row[col] || ''}" 
+                                        class="border rounded px-2 py-1 w-full"
+                                        onchange="updateTableData(${tableId}, ${rowIndex}, '${col}', this.value)">
+                                </td>
+                            `).join('')}
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <button onclick="deleteDataRow(${rowIndex})" 
+                                    class="text-red-500 hover:text-red-700">Delete</button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+
+        document.getElementById('data-table-container').innerHTML = tableHTML;
+        modal.classList.remove('hidden');
+    }
+
+    function closeDataModal() {
+        document.getElementById('data-modal').classList.add('hidden');
+        currentTableId = null;
+    }
+
+    function addDataRow() {
+        const tableEl = document.getElementById(`table-${currentTableId}`);
+        const columns = Array.from(tableEl.querySelectorAll('.columns-container > div'))
+            .map(el => el.querySelector('input[type="text"]').value.trim())
+            .filter(Boolean);
+
+        if (!tableData[currentTableId]) {
+            tableData[currentTableId] = [];
+        }
+
+        const newRow = {};
+        columns.forEach(col => newRow[col] = '');
+        tableData[currentTableId].push(newRow);
+
+        openDataModal(currentTableId); // Refresh the table view
+    }
+
+    function deleteDataRow(rowIndex) {
+        tableData[currentTableId].splice(rowIndex, 1);
+        openDataModal(currentTableId); // Refresh the table view
+    }
+
+    function updateTableData(tableId, rowIndex, column, value) {
+        if (!tableData[tableId]) {
+            tableData[tableId] = [];
+        }
+        if (!tableData[tableId][rowIndex]) {
+            tableData[tableId][rowIndex] = {};
+        }
+        tableData[tableId][rowIndex][column] = value;
+    }
+
+    async function generateSQL() {
+        const query = document.getElementById('query').value;
+        const schema = updateSchema();
+        
+        // Include table data in the request
+        const requestData = {
+            query,
+            schema,
+            tableData
+        };
+
+        try {
+            const response = await fetch('/generate-sql', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestData)
+            });
+            
+            const data = await response.json();
+            const sqlResult = document.getElementById('sql-result');
+            const resultContainer = document.getElementById('result-container');
+            
+            if (data.sql) {
+                // First display the raw SQL
+                sqlResult.textContent = data.sql;
+                
+                // Then apply syntax highlighting
+                const formattedSQL = sqlResult.textContent
+                    .replace(/\b(SELECT|FROM|WHERE|INSERT|INTO|VALUES|UPDATE|SET|DELETE|GROUP BY|ORDER BY|LIMIT|AND|OR)\b/gi, 
+                        '$1')
+                    .replace(/\b(\w+)\b(?=\s*\.)/g, '$1')
+                    .replace(/\b(id|name|grade|age|email|\w+)\b(?=\s*[=<>])/g, '$1')
+                    .replace(/([=<>!]+)/g, '$1')
+                    .replace(/('[^']*'|\b\d+\b)/g, '$1');
+
+                sqlResult.innerHTML = formattedSQL;
+                resultContainer.classList.remove('hidden');
+            } else if (data.error) {
+                sqlResult.textContent = `Error: ${data.error}`;
+                resultContainer.classList.remove('hidden');
+            } else {
+                sqlResult.textContent = 'Error: No SQL generated';
+                resultContainer.classList.remove('hidden');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            const sqlResult = document.getElementById('sql-result');
+            sqlResult.textContent = 'Error generating SQL: ' + error.message;
+            document.getElementById('result-container').classList.remove('hidden');
+        }
+    }
+
+    function saveTableData() {
+        // Save the current table data
+        const tableEl = document.getElementById(`table-${currentTableId}`);
+        const tableName = tableEl.querySelector('input[type="text"]').value.trim();
+        
+        // Show a success message
+        const saveButton = document.querySelector('button[onclick="saveTableData()"]');
+        const originalText = saveButton.textContent;
+        saveButton.textContent = 'Saved!';
+        saveButton.classList.add('bg-green-500');
+        
+        setTimeout(() => {
+            saveButton.textContent = originalText;
+            saveButton.classList.remove('bg-green-500');
+        }, 2000);
+    }
+
+    function copySQL() {
+        const sqlResult = document.getElementById('sql-result');
+        const notification = document.getElementById('copy-notification');
+        
+        // Get the SQL text without any HTML formatting
+        const sqlText = sqlResult.textContent || sqlResult.innerText;
+        
+        // Use the newer clipboard API if available
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(sqlText).then(() => {
+                showCopyNotification();
+            });
+        } else {
+            // Fallback for older browsers
+            const textarea = document.createElement('textarea');
+            textarea.value = sqlText;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showCopyNotification();
+            } catch (err) {
+                console.error('Failed to copy text:', err);
+            }
+            document.body.removeChild(textarea);
+        }
+    }
+
+    function showCopyNotification() {
+        const notification = document.getElementById('copy-notification');
+        notification.classList.remove('hidden');
+        notification.classList.add('transform', 'translate-y-0', 'opacity-100');
+        
+        setTimeout(() => {
+            notification.classList.add('hidden');
+            notification.classList.remove('transform', 'translate-y-0', 'opacity-100');
+        }, 2000);
+    }
+
+    function toggleDarkMode() {
+        const body = document.body;
+        const isChecked = document.getElementById('dark-mode-toggle').checked;
+
+        if (isChecked) {
+            body.classList.add('dark');
+        } else {
+            body.classList.remove('dark');
+        }
+    }
+
+    // Add a sample table on page load
+    window.onload = function() {
+        addTable();
+    };
+    </script>
 </body>
 </html> 

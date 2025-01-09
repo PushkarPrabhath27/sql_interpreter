@@ -1,4 +1,4 @@
-flask
-transformers
-torch
-spacy 
+flask==2.0.1
+werkzeug==2.0.3
+nltk==3.8.1
+python-dateutil==2.8.2 
